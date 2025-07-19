@@ -4,8 +4,6 @@ from importlib import reload
 import ProjectInteraction
 reload(ProjectInteraction)
 from ProjectInteraction import *
-
-
 from qgis.core import (QgsFeatureRequest,
                        QgsExpression,
                        QgsProject)
@@ -44,8 +42,9 @@ class SearchStart:
         return self.time < other.time
 
 class Search:
-    def __init__(self, time_limit, context, feedback):
+    def __init__(self, time_limit, timestamp, context, feedback):
         self.time_limit = time_limit
+        self.timestamp = timestamp
         self.context = context
         self.feedback = feedback
         self.next_nodes = []
@@ -77,14 +76,11 @@ class Search:
 
 
     def get_results(self, name):
-        root = QgsProject.instance().layerTreeRoot()
-        group = root.addGroup(name)
-
         if self.transit_service_area is not None:
             # Perform final dissolve if necessary
             if self.transit_service_area.featureCount() > 1:
                 self.transit_service_area = dissolve_layer(self.transit_service_area, self.context, self.feedback)
-            #add_layer(self.transit_service_area, f" {name } - Accessible transit network", group)
+                export_layer(self.transit_service_area, f"{self.timestamp}-Transit_Network", "GeoJSON")
         else:
             print("No transit service area found")
 
@@ -92,24 +88,20 @@ class Search:
             # Perform final dissolve if necessary
             if self.walking_service_area.featureCount() > 1:
                 self.walking_service_area = dissolve_layer(self.walking_service_area, self.context, self.feedback)
-            #add_layer(self.walking_service_area, f" {name } - Accessible street network", group)
-            self.create_polygon(group, name)
+                export_layer(self.walking_service_area, f"{self.timestamp}-Walking_Network", "GeoJSON")
+            self.create_area_polygon(f"{self.timestamp}-Reachable_Area")
         else:
             print("No walking service area found")
 
 
 
-    def create_polygon(self, group, name):
+    def create_area_polygon(self, name):
         polygon_layer = get_nearby_blocks(self.walking_service_area, self.context, self.feedback)
         renderer = polygon_layer.renderer()
-        #print(renderer.type())
+        #print("\n\n", renderer.type())
         symbol = renderer.symbol()
         symbol.setColor(QtGui.QColor(255,0,0,100))
-        props = polygon_layer.renderer().symbol().symbolLayer(0).properties()
-        #print(f"Properties: {props}")
-        #symbol.setAlpha(.4)
-        #add_layer(polygon_layer, f" {name } - Accessible blocks", group)
-        add_layer_to_gpkg(polygon_layer, f"{name}_{self.time_limit*60}")
+        export_layer(polygon_layer, name, "GeoJSON")
 
     # Get the feature ID for the correct layer
     #   If the search that yielded this feature was a transit search:
@@ -301,8 +293,8 @@ def print_elapsed_time(seconds):
     return "%02d:%02d:%02d" % (hour, min, sec)
 
 
-def main(name, origin_coords, search_time, context, feedback):
-    s = Search(search_time, context, feedback)
+def main(name, origin_coords, search_time, timestamp, context, feedback):
+    s = Search(search_time, timestamp, context, feedback)
     s.init_search(origin_coords)
     #s.clean_up
 

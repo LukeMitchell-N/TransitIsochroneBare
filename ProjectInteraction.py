@@ -312,15 +312,14 @@ def add_layer(layer, name, group):
     group.addLayer(layer)
 
 
-def add_layer_to_gpkg(layer, name):
+def export_layer(layer, name, driver):
     layer.setName(name)
-    file = r"C:\Users\lukem\Documents\Projects\PortlandTransitIsochrone\SkateparkOutput.gpkg"
-
+    #tmp_path = f"/tmp/{name}"
     save_options = QgsVectorFileWriter.SaveVectorOptions()
-    save_options.driverName = "GPKG"
+    save_options.driverName = driver
     save_options.fileEncoding = "UTF-8"
     save_options.layerName = name
-    save_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+    save_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
 
     # get transform context from the project
     transform_context = QgsProject.instance().transformContext()
@@ -328,7 +327,8 @@ def add_layer_to_gpkg(layer, name):
     # call writeAsVectorFormatV3() method, passing required arguments and
     # assign the return value to a variable
     error = QgsVectorFileWriter.writeAsVectorFormatV3(layer,
-                                                      file,
+                                                      name,
+                                                      #tmp_path,
                                                       transform_context,
                                                       save_options)
 
@@ -337,17 +337,6 @@ def add_layer_to_gpkg(layer, name):
     else:
         print(f"{name} Exported Successfully!")
 
-
-'''
-def clone_layer(layer, name):
-    layer.selectAll()
-    clone_layer = processing.run("native:saveselectedfeatures", \
-    {'INPUT': layer, 'OUTPUT': 'memory:'})['OUTPUT']
-    layer.removeSelection()
-    clone_layer.setName(name)
-    return clone_layer
-    #QgsProject.instance().addMapLayer(clone_layer)
-'''
 
 
 def create_reachable_stops_layer(stops_dict, context, feedback):

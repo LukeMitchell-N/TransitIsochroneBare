@@ -2,13 +2,12 @@ from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingException,
-                        QgsProcessingParameterNumber,
+                       QgsProcessingParameterNumber,
+                       QgsProcessingParameterString,
                        QgsProcessingParameterVectorDestination,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterField)
-from importlib import reload
 import ServiceAreaSearch
-reload(ServiceAreaSearch)
 
 
 class MultiTransitServiceArea(QgsProcessingAlgorithm):
@@ -55,6 +54,13 @@ class MultiTransitServiceArea(QgsProcessingAlgorithm):
         )
 
         self.addParameter(
+            QgsProcessingParameterString(
+                'TIMESTAMP',
+                self.tr('Unique ID for this task')
+            )
+        )
+
+        self.addParameter(
             QgsProcessingParameterVectorDestination(
                 'OUTPUT',
                 self.tr('Output Location')
@@ -65,6 +71,7 @@ class MultiTransitServiceArea(QgsProcessingAlgorithm):
         start_locations = self.parameterAsSource(parameters, 'STARTLOCATIONS', context)
         search_time = self.parameterAsInt(parameters, 'SEARCHTIMELIMIT', context) / 60
         name_field = parameters['NAME_FIELD']
+        timestamp = self.parameterAsString(parameters, 'TIMESTAMP', context)
 
         crs = start_locations.sourceCrs()
         points = start_locations.getFeatures()
@@ -77,7 +84,7 @@ class MultiTransitServiceArea(QgsProcessingAlgorithm):
             coord = point.geometry().asPoint()
             start_location = f"{coord.x()},{coord.y()} [{crs.authid()}]"
 
-            ServiceAreaSearch.main(name, start_location, search_time, context, feedback)
+            ServiceAreaSearch.main(name, start_location, search_time, timestamp, context, feedback)
 
             point_count = point_count+1
 

@@ -2,12 +2,11 @@ from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingException,
-                        QgsProcessingParameterNumber,
+                       QgsProcessingParameterNumber, 
+                       QgsProcessingParameterString,
                        QgsProcessingParameterVectorDestination,
                        QgsProcessingParameterPoint)
-from importlib import reload
 import ServiceAreaSearch
-reload(ServiceAreaSearch)
 
 
 class TransitServiceArea(QgsProcessingAlgorithm):
@@ -44,6 +43,13 @@ class TransitServiceArea(QgsProcessingAlgorithm):
         )
 
         self.addParameter(
+            QgsProcessingParameterString(
+                'TIMESTAMP',
+                self.tr('Unique ID for this task')
+            )
+        )
+
+        self.addParameter(
             QgsProcessingParameterVectorDestination(
                 'OUTPUT',
                 self.tr('Output Location')
@@ -54,11 +60,12 @@ class TransitServiceArea(QgsProcessingAlgorithm):
         start_location = self.parameterAsString(parameters, 'STARTLOCATION', context)
         search_time_min = self.parameterAsInt(parameters, 'SEARCHTIMELIMIT', context)
         search_time_hour = search_time_min/ 60
+        timestamp = self.parameterAsString(parameters, 'TIMESTAMP', context)
         name = f"Point - {search_time_min} minute service area"
         if feedback.isCanceled():
             return {}
 
         #print(f"Start Location: {start_location}")
-        ServiceAreaSearch.main(name, start_location, search_time_hour, context, feedback)
+        ServiceAreaSearch.main(name, start_location, search_time_hour, timestamp, context, feedback)
 
         return {}

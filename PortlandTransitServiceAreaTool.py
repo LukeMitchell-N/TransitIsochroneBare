@@ -65,7 +65,6 @@ class TransitServiceArea(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
 
-        #print(f"Start Location: {start_location}")
         ServiceAreaSearch.main(name, start_location, search_time_hour, timestamp, context, feedback)
 
         return {}

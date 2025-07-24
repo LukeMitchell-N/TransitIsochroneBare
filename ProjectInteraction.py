@@ -13,17 +13,31 @@ from qgis.core import (QgsProcessing,
                        QgsVectorFileWriter)
 from qgis import processing
 
-streets_name = '1HrWalkableRoads_NoHighways'
-route_stops_name = 'trimet_route_stops'
-stops_name = 'trimet_stops'
-routes_name = 'trimet_routes'
-blocks_name = 'census_blocks_land_only'
+streets_name =      '1HrWalkableRoads_NoHighways'
+blocks_name =       'census_blocks_land_only'
+routes_name =       'trimet_routes'
+stops_name =        'trimet_stops'
+route_stops_name =  'trimet_route_stops'
 
 street_layer = QgsProject.instance().mapLayersByName(streets_name)[0]
 route_stops_layer = QgsProject.instance().mapLayersByName(route_stops_name)[0]
 stops_layer = QgsProject.instance().mapLayersByName(stops_name)[0]
 routes_layer = QgsProject.instance().mapLayersByName(routes_name)[0]
 blocks_layer = QgsProject.instance().mapLayersByName(blocks_name)[0]
+
+# For loading from file - Not working as currently implemented
+# Each layer needs to be added to the context and possibly more
+# streets_path =      'AreaFiles.gpkg|layername=' + streets_name
+# blocks_path =       'AreaFiles.gpkg|layername=' + blocks_name
+# routes_path =       'WorkingFiles.gpkg|layername=' + routes_name
+# stops_path =        'WorkingFiles.gpkg|layername=' + stops_name
+# route_stops_path =  'WorkingFiles.gpkg|layername=' + route_stops_name
+
+# street_layer =      QgsVectorLayer(streets_path, "Street_Layer", "ogr")
+# blocks_layer =      QgsVectorLayer(blocks_path, "Census_Blocks", "ogr")
+# routes_layer =      QgsVectorLayer(routes_path, "Trimet_Routes", "ogr")
+# stops_layer =       QgsVectorLayer(stops_path, "Trimet_Stops", "ogr")
+# route_stops_layer = QgsVectorLayer(route_stops_path, "Trimet_Route_Stops", "ogr")
 
 walk_feet_per_hour = 14784  #feet walkable in one hour \
     #assuming a walking speed of 2.8 mph
@@ -314,7 +328,7 @@ def add_layer(layer, name, group):
 
 def export_layer(layer, name, driver):
     layer.setName(name)
-    #tmp_path = f"/tmp/{name}"
+    tmp_path = f"/tmp/{name}"
     save_options = QgsVectorFileWriter.SaveVectorOptions()
     save_options.driverName = driver
     save_options.fileEncoding = "UTF-8"
@@ -327,8 +341,8 @@ def export_layer(layer, name, driver):
     # call writeAsVectorFormatV3() method, passing required arguments and
     # assign the return value to a variable
     error = QgsVectorFileWriter.writeAsVectorFormatV3(layer,
-                                                      name,
-                                                      #tmp_path,
+                                                      #name,
+                                                      tmp_path,
                                                       transform_context,
                                                       save_options)
 

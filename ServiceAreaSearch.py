@@ -246,8 +246,8 @@ class Search:
         while self.next_nodes:
             next_origin = self.pick_next()
             if next_origin:
-                #mode = "transit" if search_origin.is_transit_node else "walking"
-                # print(f"Beginning {mode} search from point {next_origin.id}")
+                mode = "transit" if next_origin.is_transit_node else "walking"
+                #print(f"Beginning {mode} search from point {next_origin.id}")
 
                 if next_origin.is_transit_node:
                     self.perform_transit_search(next_origin)
@@ -255,7 +255,7 @@ class Search:
                     self.perform_walk_search(next_origin)
             del next_origin
             if self.feedback.isCanceled():
-                print("Cancelling search. Generating partial service layers.")
+                print("Cancelling search...")
 
                 return
         # print("Search complete")
@@ -296,9 +296,6 @@ def print_elapsed_time(seconds):
 def main(name, origin_coords, search_time, timestamp, context, feedback):
     s = Search(search_time, timestamp, context, feedback)
     s.init_search(origin_coords)
-    #s.clean_up
-
-
     start_time = time.perf_counter()
     s.get_results(name)
     end_time = time.perf_counter()
@@ -307,6 +304,3 @@ def main(name, origin_coords, search_time, timestamp, context, feedback):
     s.print_search_summary()
 
     del s
-
-
-#main("7642303.8,681728.6 [EPSG:2913]", .5)

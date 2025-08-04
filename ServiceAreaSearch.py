@@ -80,18 +80,23 @@ class Search:
             # Perform final dissolve if necessary
             if self.transit_service_area.featureCount() > 1:
                 self.transit_service_area = dissolve_layer(self.transit_service_area, self.context, self.feedback)
-                export_layer(self.transit_service_area, f"{self.timestamp}-Transit_Network", "GeoJSON")
+            transit_result = export_layer(self.transit_service_area, f"{self.timestamp}-Transit_Network", "GeoJSON")
         else:
             print("No transit service area found")
+            transit_result = "None"
 
         if self.walking_service_area is not None:
             # Perform final dissolve if necessary
             if self.walking_service_area.featureCount() > 1:
                 self.walking_service_area = dissolve_layer(self.walking_service_area, self.context, self.feedback)
-                export_layer(self.walking_service_area, f"{self.timestamp}-Walking_Network", "GeoJSON")
-            self.create_area_polygon(f"{self.timestamp}-Reachable_Area")
+            walking_result = export_layer(self.walking_service_area, f"{self.timestamp}-Walking_Network", "GeoJSON")
+            area_result = self.create_area_polygon(f"{self.timestamp}-Reachable_Area")
         else:
             print("No walking service area found")
+            walking_result = "None"
+            area_result = "None"
+
+        return {"Transit" : transit_result, "Walking" : walking_result, "Area" : area_result}
 
 
 
@@ -101,7 +106,7 @@ class Search:
         #print("\n\n", renderer.type())
         symbol = renderer.symbol()
         symbol.setColor(QtGui.QColor(255,0,0,100))
-        export_layer(polygon_layer, name, "GeoJSON")
+        return export_layer(polygon_layer, name, "GeoJSON")
 
     # Get the feature ID for the correct layer
     #   If the search that yielded this feature was a transit search:
@@ -231,6 +236,7 @@ class Search:
 
 
     def perform_walk_search(self, node):
+        print("Inside perform_walk_search")
         result = get_reachable_stops_walking(node, self.time_limit, self.walking_service_area,
                                                                                 self.context, self.feedback)
         if not result:
@@ -295,12 +301,19 @@ def print_elapsed_time(seconds):
 
 def main(name, origin_coords, search_time, timestamp, context, feedback):
     s = Search(search_time, timestamp, context, feedback)
+
     s.init_search(origin_coords)
+    
     start_time = time.perf_counter()
-    s.get_results(name)
+    results = s.get_results(name)
     end_time = time.perf_counter()
+    
     print(f"    + Elapsed time performing final dissolves: {print_elapsed_time(end_time - start_time)}")
 
     s.print_search_summary()
 
     del s
+
+    return results
+
+

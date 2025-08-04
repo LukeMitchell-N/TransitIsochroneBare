@@ -24,32 +24,33 @@ class ProcessFeeback(QgsProcessingFeedback):
         self.messages.append(f'Error: {msg}')
 
 
-                                                            # Supply path to qgis install location
-#qgis_path = r"C:\Program Files\QGIS 3.34.12\apps\qgis-ltr"      # Windows path
-qgis_path = '/usr'                                               # Ubuntu path
-QgsApplication.setPrefixPath(qgis_path, True)
-
-os.environ["QT_QPA_PLATFORM"] = "offscreen"                 # Flag QT to be offscreen/headless
-qgis = QgsApplication([], False)                            # Ref to QGIS app, set to no GUI
-
-project_path = '/portfolio_app/processing/TransitIsochroneTool/TransitConnectivity.qgs'
-project = QgsProject.instance()
-
-
 
 def run_isochrone(start_loc, time_limit):
+    
+    # Supply path to qgis install location
+    #qgis_path = r"C:\Program Files\QGIS 3.34.12\apps\qgis-ltr"     # Windows path
+    qgis_path = '/usr'                                              # Ubuntu path
+    QgsApplication.setPrefixPath(qgis_path, True)
+
+    os.environ["PROJ_LIB"] = "/usr/share/proj"                      # Point to correct proj location (?)
+
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"                     # Flag QT to be offscreen/headless
+    qgis = QgsApplication([], False)                                # Ref to QGIS app, set to no GUI
+
+    project_path = '/portfolio_app/processing/TransitIsochroneTool/TransitConnectivity.qgs'
+    project = QgsProject.instance()
 
     # Initialize a QGIS instance
     qgis.initQgis()
     
     project.read(project_path)    
 
-    from AlgorithmProvider import AlgorithmProvider             # Load algorithm provider only after reading in project
+    from AlgorithmProvider import AlgorithmProvider                 # Load algorithm provider only after reading in project
     Processing.initialize()
     provider = AlgorithmProvider()
     QgsApplication.processingRegistry().addProvider(provider)
 
-    current_time = datetime.now().strftime("%Y-%m-%d'%H'%M'%S")
+    current_time = datetime.now().strftime("%Y-%m-%d--%H*%M*%S")
 
     params = {
             'STARTLOCATION'     : start_loc,
@@ -63,9 +64,11 @@ def run_isochrone(start_loc, time_limit):
 
     feedback = ProcessFeeback()
 
+    print("Arrived at alg.run")
     alg = QgsApplication.processingRegistry().algorithmById("alg_provider:transitservicearea")
-    alg.run(params, context, feedback)                          
+    results = alg.run(params, context, feedback)                          
 
     qgis.exitQgis()
+    return results[0]
 
-run_isochrone('7642700.835310,682883.097856 [EPSG:2913]',5)
+#run_isochrone('7642700.835310,682883.097856 [EPSG:2913]',5)

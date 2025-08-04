@@ -40,10 +40,9 @@ blocks_layer = QgsProject.instance().mapLayersByName(blocks_name)[0]
 # stops_layer =       QgsVectorLayer(stops_path, "Trimet_Stops", "ogr")
 # route_stops_layer = QgsVectorLayer(route_stops_path, "Trimet_Route_Stops", "ogr")
 
-walk_feet_per_hour = 14784  #feet walkable in one hour \
-    #assuming a walking speed of 2.8 mph
-walk_km_per_hour = 4.50616
-ft_to_m = 3.28084
+
+walk_m_per_hour = 5200
+walk_km_per_hour = 5.2
 
 
 
@@ -52,18 +51,15 @@ def find_stops_walking(start_node, network, stops, context, feedback):
     # get the coordinates as a string from the start node
     lat_lon_str = start_node.get_coord_string()
 
-    # Note: due to this algorithm calculating distances on these layers in feet,
-    #   we have to multiply the km/hr by ft_to_meters to get the correct times
     #print(f"FSW - network type: {type(network)}, feature count = {network.featureCount()}")
     #print(f"FSW - stops type: {type(stops)}, feature count = {stops.featureCount()}")
     #print(f"FSW - lat_lon_str: {lat_lon_str}")
-    #print(f"FSW - default speed: {ft_to_m * walk_km_per_hour}")
     reachable_stops_id = processing.run("native:shortestpathpointtolayer",
                                      {'INPUT':network,'STRATEGY': 1,
                                       'DIRECTION_FIELD':'','VALUE_FORWARD':'',
                                       'VALUE_BACKWARD':'','VALUE_BOTH':'',
                                       'DEFAULT_DIRECTION':2,'SPEED_FIELD':'',
-                                      'DEFAULT_SPEED': ft_to_m * walk_km_per_hour,
+                                      'DEFAULT_SPEED': walk_km_per_hour,
                                       'TOLERANCE':0,'START_POINT':lat_lon_str,
                                       'END_POINTS':stops, 'OUTPUT':'TEMPORARY_OUTPUT'},
                                     is_child_algorithm=True,
@@ -111,7 +107,7 @@ def find_stops_transit(start_node, route, stops, context, feedback):
 def get_reachable_stops_walking(start_node, time_limit, total_service_area, context, feedback):
     # Create buffer around start point with radius of
     # The maximum distance walkable with time remaining
-    max_distance = walk_feet_per_hour * (time_limit - start_node.time)
+    max_distance = walk_m_per_hour * (time_limit - start_node.time)
     if start_node.is_search_origin:
         buffer = create_origin_buffer(start_node, max_distance, context, feedback)
     else:
@@ -176,7 +172,7 @@ def create_walking_service_area(start_node, streets, total_time, context, feedba
     service_area_id = processing.run("native:serviceareafrompoint", {
         'INPUT': streets,
         'STRATEGY': 1, 'DIRECTION_FIELD': '', 'VALUE_FORWARD': '', 'VALUE_BACKWARD': '', 'VALUE_BOTH': '',
-        'DEFAULT_DIRECTION': 2, 'SPEED_FIELD': '', 'DEFAULT_SPEED': ft_to_m * walk_km_per_hour, 'TOLERANCE': 0,
+        'DEFAULT_DIRECTION': 2, 'SPEED_FIELD': '', 'DEFAULT_SPEED': walk_km_per_hour, 'TOLERANCE': 0,
         'START_POINT': lat_lon_str, 'TRAVEL_COST2': total_time - start_node.time, 'INCLUDE_BOUNDS': False,
         'OUTPUT_LINES': 'TEMPORARY_OUTPUT'},
         is_child_algorithm=True,
@@ -309,7 +305,7 @@ def polygonize(layer, context, feedback):
 
     return dissolve_layer(polygons, context, feedback)
 
-#return blocks within 10 ft of a feature
+#return blocks within 10 ft/(units?) of a feature
 def get_nearby_blocks(feature, context, feedback):
     blocks_id = processing.run("native:extractwithindistance", 
                    {'INPUT':blocks_layer,

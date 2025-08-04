@@ -10,7 +10,8 @@ from qgis.core import (QgsProcessing,
                        QgsVectorLayer,
                        QgsGeometry,
                        QgsPointXY,
-                       QgsVectorFileWriter)
+                       QgsVectorFileWriter,
+                       QgsCoordinateReferenceSystem)
 from qgis import processing
 
 streets_name =      '1HrWalkableRoads_NoHighways'
@@ -213,7 +214,7 @@ def save_service_area(total_area, new_area, context, feedback):
 # Create buffer around the point indicated by a node's layer and id
 # Returns the vector layer containing the buffer
 def create_buffer(node, distance, context, feedback):
-    #print(f"   Creating buffer at coord {node.get_coord_string()} with distance {distance}")
+    print(f"   Creating buffer at coord {node.get_coord_string()} with distance {distance}")
     select_feature_by_attribute(node.layer, 'fid', node.id, context, feedback)
     node_extracted = extract_selection(node.layer, context, feedback)
     
@@ -249,7 +250,7 @@ def create_origin_buffer(node, distance, context, feedback):
     provider = layer.dataProvider()
     provider.addFeatures([feat])
 
-    #print(f"COB - layer type: {type(layer)}, feature count = {layer.featureCount()}")
+    print(f"COB - layer type: {type(layer)}, feature count = {layer.featureCount()}")
     buffer_id = processing.run("native:buffer",
                             {'INPUT': layer,
                              'DISTANCE': distance,
@@ -328,28 +329,24 @@ def add_layer(layer, name, group):
 
 def export_layer(layer, name, driver):
     layer.setName(name)
-    tmp_path = f"/tmp/{name}"
-    save_options = QgsVectorFileWriter.SaveVectorOptions()
-    save_options.driverName = driver
-    save_options.fileEncoding = "UTF-8"
-    save_options.layerName = name
-    save_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+    path = f"/tmp/{name}"
+    #path = name
 
-    # get transform context from the project
-    transform_context = QgsProject.instance().transformContext()
-    
-    # call writeAsVectorFormatV3() method, passing required arguments and
-    # assign the return value to a variable
-    error = QgsVectorFileWriter.writeAsVectorFormatV3(layer,
-                                                      #name,
-                                                      tmp_path,
-                                                      transform_context,
-                                                      save_options)
+    error = QgsVectorFileWriter.writeAsVectorFormat(
+        layer=layer, 
+        fileName=path, 
+        fileEncoding="UTF-8", 
+        destCRS=QgsCoordinateReferenceSystem('EPSG:4326'),
+        driverName="GeoJSON", )
+
 
     if error[0] != QgsVectorFileWriter.NoError:
-        print(error[1])
+        print("Error in export_layer: " + error[0])
+        # Return one day to return a meaningful error
+        return "None"
     else:
-        print(f"{name} Exported Successfully!")
+        print(f"{path} Exported Successfully!")
+        return f"{path}.geojson"
 
 
 

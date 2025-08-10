@@ -210,7 +210,7 @@ def save_service_area(total_area, new_area, context, feedback):
 # Create buffer around the point indicated by a node's layer and id
 # Returns the vector layer containing the buffer
 def create_buffer(node, distance, context, feedback):
-    print(f"   Creating buffer at coord {node.get_coord_string()} with distance {distance}")
+    #print(f"   Creating buffer at coord {node.get_coord_string()} with distance {distance}")
     select_feature_by_attribute(node.layer, 'fid', node.id, context, feedback)
     node_extracted = extract_selection(node.layer, context, feedback)
     
@@ -293,18 +293,6 @@ def dissolve_layer(layer, context, feedback):
     return context.getMapLayer(dissolved_id)
 
 
-def polygonize(layer, context, feedback):
-    #print(f"POLYGONIZE - layer type: {type(layer)}, feature count = {layer.featureCount()}")
-    polygons_id = processing.run("native:polygonize",
-                   {'INPUT':layer,'KEEP_FIELDS':False,
-                    'OUTPUT':'TEMPORARY_OUTPUT'},
-                    is_child_algorithm=True,
-                    context=context,
-                    feedback=feedback)['OUTPUT']
-    polygons = context.getMapLayer(polygons_id)
-
-    return dissolve_layer(polygons, context, feedback)
-
 #return blocks within 10 ft/(units?) of a feature
 def get_nearby_blocks(feature, context, feedback):
     blocks_id = processing.run("native:extractwithindistance", 
@@ -323,7 +311,7 @@ def add_layer(layer, name, group):
     group.addLayer(layer)
 
 
-def export_layer(layer, name, driver):
+def export_layer(layer, name, short_name, driver):
     layer.setName(name)
     path = f"/tmp/{name}"
     #path = name
@@ -341,7 +329,8 @@ def export_layer(layer, name, driver):
         # Return one day to return a meaningful error
         return "None"
     else:
-        print(f"{path} Exported Successfully!")
+        #print(f"{path} Exported Successfully!")
+        print(f"Layer Update - {short_name} - {path}.geojson")
         return f"{path}.geojson"
 
 

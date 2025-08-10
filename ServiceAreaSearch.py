@@ -75,12 +75,12 @@ class Search:
         print(f"    Repeated searches from {self.repeat_count} nodes")
 
 
-    def get_results(self, name):
+    def get_results(self):
         if self.transit_service_area is not None:
             # Perform final dissolve if necessary
             if self.transit_service_area.featureCount() > 1:
                 self.transit_service_area = dissolve_layer(self.transit_service_area, self.context, self.feedback)
-            transit_result = export_layer(self.transit_service_area, f"{self.timestamp}-Transit_Network", "GeoJSON")
+            transit_result = export_layer(self.transit_service_area, f"{self.timestamp}-Transit_Network", "Transit", "GeoJSON")
         else:
             print("No transit service area found")
             transit_result = "None"
@@ -89,7 +89,7 @@ class Search:
             # Perform final dissolve if necessary
             if self.walking_service_area.featureCount() > 1:
                 self.walking_service_area = dissolve_layer(self.walking_service_area, self.context, self.feedback)
-            walking_result = export_layer(self.walking_service_area, f"{self.timestamp}-Walking_Network", "GeoJSON")
+            walking_result = export_layer(self.walking_service_area, f"{self.timestamp}-Walking_Network", "Walking", "GeoJSON")
             area_result = self.create_area_polygon(f"{self.timestamp}-Reachable_Area")
         else:
             print("No walking service area found")
@@ -101,12 +101,12 @@ class Search:
 
 
     def create_area_polygon(self, name):
-        polygon_layer = get_nearby_blocks(self.walking_service_area, self.context, self.feedback)
+        polygon_layer = dissolve_layer(get_nearby_blocks(self.walking_service_area, self.context, self.feedback), self.context, self.feedback)
         renderer = polygon_layer.renderer()
         #print("\n\n", renderer.type())
         symbol = renderer.symbol()
         symbol.setColor(QtGui.QColor(255,0,0,100))
-        return export_layer(polygon_layer, name, "GeoJSON")
+        return export_layer(polygon_layer, name, "Blocks", "GeoJSON")
 
     # Get the feature ID for the correct layer
     #   If the search that yielded this feature was a transit search:
@@ -236,7 +236,7 @@ class Search:
 
 
     def perform_walk_search(self, node):
-        print("Inside perform_walk_search")
+        #print("Inside perform_walk_search")
         result = get_reachable_stops_walking(node, self.time_limit, self.walking_service_area,
                                                                                 self.context, self.feedback)
         if not result:
@@ -249,6 +249,8 @@ class Search:
 
 
     def perform_search(self):
+        time_old = time.perf_counter()
+        progress_old = 0
         while self.next_nodes:
             next_origin = self.pick_next()
             if next_origin:
@@ -259,6 +261,16 @@ class Search:
                     self.perform_transit_search(next_origin)
                 else:
                     self.perform_walk_search(next_origin)
+
+                time_new = time.perf_counter()
+                progress_new = next_origin.time
+                #print(f"Supposed elapsed seconds: {time_new- time_old}")
+                if ((time_new - time_old) >= 5 and                                    # If 5 or more seconds have passed since last layer export
+                    (progress_new - progress_old)/self.time_limit >= .05):            # and 5% or more progress has been made in the search
+                    self.get_results()
+                    progress_old = progress_new
+                    time_old = time_new
+
             del next_origin
             if self.feedback.isCanceled():
                 print("Cancelling search...")
@@ -305,7 +317,7 @@ def main(name, origin_coords, search_time, timestamp, context, feedback):
     s.init_search(origin_coords)
     
     start_time = time.perf_counter()
-    results = s.get_results(name)
+    results = s.get_results()
     end_time = time.perf_counter()
     
     print(f"    + Elapsed time performing final dissolves: {print_elapsed_time(end_time - start_time)}")

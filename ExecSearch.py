@@ -64,11 +64,17 @@ def run_isochrone(start_loc, time_limit):
 
     feedback = ProcessFeeback()
 
-    print("Arrived at alg.run")
     alg = QgsApplication.processingRegistry().algorithmById("alg_provider:transitservicearea")
     results = alg.run(params, context, feedback)                          
 
+    QgsProject.instance().clear()
     qgis.exitQgis()
+    del qgis
     return results[0]
 
-#run_isochrone('7642700.835310,682883.097856 [EPSG:2913]',5)
+if __name__ == "__main__":
+    print(sys.argv)
+    run_isochrone(sys.argv[1], sys.argv[2])
+
+# Test command line call:
+# python3 ... '-13641659.399766,5697527.708063 [EPSG:3857]' 4

@@ -90,7 +90,7 @@ def find_stops_transit(start_node, route, stops, context, feedback):
                                      {'INPUT': route,
                                      'STRATEGY': 1, 'DIRECTION_FIELD': 'DIR', 'VALUE_FORWARD': direction,
                                      'VALUE_BACKWARD': reverse, 'VALUE_BOTH': '', 'DEFAULT_DIRECTION': direction,
-                                     'SPEED_FIELD': 'KILO_FT_PER_HOUR', 'DEFAULT_SPEED': 1, 'TOLERANCE': 0,
+                                     'SPEED_FIELD': 'AVG_KPH', 'DEFAULT_SPEED': 1, 'TOLERANCE': 0,
                                      'START_POINT': lat_lon_str,
                                      'END_POINTS': stops,
                                     'OUTPUT': 'TEMPORARY_OUTPUT'},

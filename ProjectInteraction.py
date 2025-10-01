@@ -50,10 +50,10 @@ walk_km_per_hour = 5.2
 def find_stops_walking(start_node, network, stops, context, feedback):
     # get the coordinates as a string from the start node
     lat_lon_str = start_node.get_coord_string()
-
-    #print(f"FSW - network type: {type(network)}, feature count = {network.featureCount()}")
-    #print(f"FSW - stops type: {type(stops)}, feature count = {stops.featureCount()}")
-    #print(f"FSW - lat_lon_str: {lat_lon_str}")
+    if start_node.get_stop_id() != None:
+        print(f"Performing walking search from Trimet stop {start_node.get_stop_id()}")
+    else:
+        print("Performing initial walk search")
     reachable_stops_id = processing.run("native:shortestpathpointtolayer",
                                      {'INPUT':network,'STRATEGY': 1,
                                       'DIRECTION_FIELD':'','VALUE_FORWARD':'',
@@ -67,7 +67,6 @@ def find_stops_walking(start_node, network, stops, context, feedback):
                                     feedback=feedback)['OUTPUT']
     reachable_stops = context.getMapLayer(reachable_stops_id)
     reachable_stops.setName(f"walking_routes from id {start_node.id}")
-    #QgsProject.instance().addMapLayer(reachable_stops)
     return reachable_stops
 
 
@@ -99,7 +98,6 @@ def find_stops_transit(start_node, route, stops, context, feedback):
                                     feedback=feedback)['OUTPUT']
     routes_to_stops = context.getMapLayer(routes_to_stops_id)
     routes_to_stops.setName(f"transit_routes from id {start_node.id}")
-    #QgsProject.instance().addMapLayer(routes_to_stops)
     return routes_to_stops
 
 
@@ -117,16 +115,12 @@ def get_reachable_stops_walking(start_node, time_limit, total_service_area, cont
         print("No buffer, returning empty from get_reachable_stops_walking")
         return
 
-    #QgsProject.instance().addMapLayer(buffer)
 
     # Clip the street layer to only search relevant streets
-    nearby_streets = clip_layer(street_layer, buffer, "clipped streets", context, feedback)
-    #QgsProject.instance().addMapLayer(nearby_streets)
-    
+    nearby_streets = clip_layer(street_layer, buffer, "clipped streets", context, feedback)    
 
     # Clip stop layer to only search relevant stops
     nearby_stops = clip_layer(route_stops_layer, buffer, "clipped stops", context, feedback)
-    #QgsProject.instance().addMapLayer(nearby_stops)
 
     # Search the network to find all reachable stops
     search_routes = find_stops_walking(start_node, nearby_streets, nearby_stops, context, feedback)
@@ -139,9 +133,6 @@ def get_reachable_stops_walking(start_node, time_limit, total_service_area, cont
     local_service_area = create_walking_service_area(start_node, nearby_streets, time_limit, context, feedback)
     new_total_service_area = save_service_area(total_service_area, local_service_area, context, feedback)
 
-
-    #QgsProject.instance().addMapLayer(search_routes)
-
     return search_routes, new_total_service_area
 
 
@@ -153,14 +144,13 @@ def get_reachable_stops_transit(start_node, time_limit, total_service_area, cont
     isolated_stops = extract_by_route(route_stops_layer, start_node.rte, start_node.dir, context, feedback)
 
     # Get the paths (portions of the route) from the start node to all stops on the route
+    print(f"Performing transit search along Trimet route {start_node.rte}")
     search_routes = find_stops_transit(start_node, isolated_route, isolated_stops, context, feedback)
 
     # Get rid of all stops that exceed the time remaining
     remove_unreachable_stops(search_routes, start_node.time, time_limit)
 
     new_total_service_area = save_service_area(total_service_area, search_routes, context, feedback)
-
-    #QgsProject.instance().addMapLayer(search_routes)
 
     return search_routes, new_total_service_area
 
@@ -188,8 +178,7 @@ def save_service_area(total_area, new_area, context, feedback):
     if total_area is None:
         total_area = new_area
     else:
-        #print(f"SSA - total_area type: {type(total_area)}, feature count = {total_area.featureCount()}")
-        #print(f"SSA - new_area type: {type(new_area)}, feature count = {new_area.featureCount()}")
+        #print(f"Merging {new_area.featureCount()} polygons")
         total_area_id = processing.run("native:mergevectorlayers", {
             'LAYERS': [total_area,
                        new_area], 'CRS': None,
@@ -210,7 +199,7 @@ def save_service_area(total_area, new_area, context, feedback):
 # Create buffer around the point indicated by a node's layer and id
 # Returns the vector layer containing the buffer
 def create_buffer(node, distance, context, feedback):
-    #print(f"   Creating buffer at coord {node.get_coord_string()} with distance {distance}")
+    print(f"Generating {format(distance, '.0f')} meter walk buffer around Trimet stop {node.get_stop_id()}")
     select_feature_by_attribute(node.layer, 'fid', node.id, context, feedback)
     node_extracted = extract_selection(node.layer, context, feedback)
     
@@ -227,7 +216,6 @@ def create_buffer(node, distance, context, feedback):
         return
     buffer = context.getMapLayer(buffer_id)
     node.layer.removeSelection()
-    #QgsProject.instance().addMapLayer(buffer)
     return buffer
 
 
@@ -246,7 +234,7 @@ def create_origin_buffer(node, distance, context, feedback):
     provider = layer.dataProvider()
     provider.addFeatures([feat])
 
-    print(f"COB - layer type: {type(layer)}, feature count = {layer.featureCount()}")
+    print(f"Creating origin walk buffer")
     buffer_id = processing.run("native:buffer",
                             {'INPUT': layer,
                              'DISTANCE': distance,
@@ -257,8 +245,6 @@ def create_origin_buffer(node, distance, context, feedback):
                             context=context,
                             feedback=feedback)['OUTPUT']
     buffer_output = context.getMapLayer(buffer_id)
-    #QgsProject.instance().addMapLayer(buffer)
-    #QgsProject.instance().addMapLayer(layer)
     return buffer_output
 
 
@@ -283,7 +269,7 @@ def clip_layer(layer, overlay, name, context, feedback):
 
 
 def dissolve_layer(layer, context, feedback):
-    #print(f"DISSOLVE - layer type: {type(layer)}, feature count = {layer.featureCount()}")
+    print(f"Dissolving {layer.featureCount()} features")
     dissolved_id =  processing.run("native:dissolve", {
         'INPUT': layer, 'FIELD': [], 'SEPARATE_DISJOINT': False,
         'OUTPUT': 'TEMPORARY_OUTPUT'},
@@ -329,7 +315,6 @@ def export_layer(layer, name, short_name, driver):
         # Return one day to return a meaningful error
         return "None"
     else:
-        #print(f"{path} Exported Successfully!")
         print(f"Layer Update - {short_name} - {path}.geojson")
         return f"{path}.geojson"
 

@@ -11,8 +11,9 @@ from qgis.PyQt import QtGui
 
 
 class SearchStart:
-    def __init__(self, identifier, layer, time, dictionary, is_transit_node, is_search_origin):
+    def __init__(self, identifier, stop_id, layer, time, dictionary, is_transit_node, is_search_origin):
         self.id = identifier
+        self.stop_id = stop_id
         self.layer = layer
         self.time = time
         self.dictionary = dictionary
@@ -33,6 +34,9 @@ class SearchStart:
             feature = next(self.layer.getFeatures(QgsFeatureRequest().setFilterFid(self.id)))
             geo_point = feature.geometry().asPoint()
             return f"{geo_point.x()},{geo_point.y()} [{self.layer.crs().authid()}]"
+
+    def get_stop_id(self):
+        return self.stop_id
 
     def __repr__(self):
         mode = "transit" if self.is_transit_node else "walking"
@@ -70,12 +74,21 @@ class Search:
 
 
     def print_search_summary(self):
-        print(f"Searched from {len(self.walk_nodes_dictionary.keys())} walk nodes")
-        print(f"Searched from {len(self.transit_nodes_dictionary.keys())} transit nodes")
-        print(f"    Repeated searches from {self.repeat_count} nodes")
+        rpt = "repeat" if self.repeat_count == 1 else "repeats"
+        t_srch = "search" if len(self.transit_nodes_dictionary.keys()) == 1 else "searches"
+        w_srch = "search" if len(self.walk_nodes_dictionary.keys()) == 1 else "searches"
+
+        print(f"Search complete. \
+                {len(self.transit_nodes_dictionary.keys())} transit {t_srch}, \
+                {len(self.walk_nodes_dictionary.keys())} walking {w_srch}, \
+                {self.repeat_count} {rpt}.")
+        #print(f"Searched from {len(self.walk_nodes_dictionary.keys())} walk nodes")
+        #print(f"Searched from {len(self.transit_nodes_dictionary.keys())} transit nodes")
+        #print(f"    Repeated searches from {self.repeat_count} nodes")
 
 
-    def get_results(self):
+    def get_results(self, progress_pct):
+        print(f"$$ Progress: {progress_pct}%")
         if self.transit_service_area is not None:
             # Perform final dissolve if necessary
             if self.transit_service_area.featureCount() > 1:
@@ -146,6 +159,7 @@ class Search:
         if self.should_add_search_node(feature_key, next_dictionary, departing_time):
             next_dictionary[feature_key] = departing_time
             node = SearchStart(feature_key,
+                               feature['stop_id'],
                                next_layer,
                                departing_time, next_dictionary, not add_to_walk_search, False)
             if not add_to_walk_search:
@@ -161,7 +175,7 @@ class Search:
     def add_search_nodes(self, paths, node, add_to_walk_search):
         next_search_layer = stops_layer if add_to_walk_search else route_stops_layer
         next_dictionary = self.walk_nodes_dictionary if add_to_walk_search else self.transit_nodes_dictionary
-
+        nodes_added = 0
         for f in paths:
             if f['cost']:
                 if node.is_search_origin or add_to_walk_search:
@@ -179,8 +193,9 @@ class Search:
                     avg_wait = (1 / next_route['TRIPS_PER_HOUR']) / 2
                     departure_time = node.time + f['cost'] + avg_wait
                     routes_layer.removeSelection()
-
+                nodes_added += 1
                 self.add_search_node(f, departure_time, add_to_walk_search, next_dictionary, next_search_layer)
+        print(f"Added {nodes_added} nodes to search list")
 
 
     # Select next node from which to begin a search
@@ -249,7 +264,9 @@ class Search:
 
 
     def perform_search(self):
+        update_sec_threshold = 5
         time_old = time.perf_counter()
+        update_pct_threshold = .05
         progress_old = 0
         while self.next_nodes:
             next_origin = self.pick_next()
@@ -265,9 +282,9 @@ class Search:
                 time_new = time.perf_counter()
                 progress_new = next_origin.time
                 #print(f"Supposed elapsed seconds: {time_new- time_old}")
-                if ((time_new - time_old) >= 5 and                                    # If 5 or more seconds have passed since last layer export
-                    (progress_new - progress_old)/self.time_limit >= .05):            # and 5% or more progress has been made in the search
-                    self.get_results()
+                if ((time_new - time_old) >= update_sec_threshold and                                       # If 5 or more seconds have passed since last layer export
+                    (progress_new - progress_old)/self.time_limit >= update_pct_threshold):                 # and 5% or more progress has been made in the search
+                    self.get_results(format((progress_new * 100)/self.time_limit, '.0f'))
                     progress_old = progress_new
                     time_old = time_new
 
@@ -281,7 +298,7 @@ class Search:
 
     def init_search(self, origin_coords):
         # Prep starting node
-        init_node = SearchStart(None, None, 0,
+        init_node = SearchStart(None, None, 0, 0,
                                 self.transit_nodes_dictionary, False, True)
         init_node.set_coord_string(origin_coords)
 
@@ -317,10 +334,10 @@ def main(name, origin_coords, search_time, timestamp, context, feedback):
     s.init_search(origin_coords)
     
     start_time = time.perf_counter()
-    results = s.get_results()
+    results = s.get_results(100)
     end_time = time.perf_counter()
     
-    print(f"    + Elapsed time performing final dissolves: {print_elapsed_time(end_time - start_time)}")
+    #print(f"    + Elapsed time performing final dissolves: {print_elapsed_time(end_time - start_time)}")
 
     s.print_search_summary()
 

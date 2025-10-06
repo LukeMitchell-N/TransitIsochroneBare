@@ -11,7 +11,8 @@ from qgis.core import (QgsProcessing,
                        QgsGeometry,
                        QgsPointXY,
                        QgsVectorFileWriter,
-                       QgsCoordinateReferenceSystem)
+                       QgsCoordinateReferenceSystem,
+                       QgsUnitTypes)
 from qgis import processing
 
 streets_name =      '1HrWalkableRoads_NoHighways'
@@ -41,8 +42,8 @@ blocks_layer = QgsProject.instance().mapLayersByName(blocks_name)[0]
 # route_stops_layer = QgsVectorLayer(route_stops_path, "Trimet_Route_Stops", "ogr")
 
 
-walk_m_per_hour = 5200
-walk_km_per_hour = 5.2
+walk_m_per_hour = 5000
+walk_km_per_hour = 5
 
 
 
@@ -54,13 +55,12 @@ def find_stops_walking(start_node, network, stops, context, feedback):
         print(f"Performing walking search from Trimet stop {start_node.get_stop_id()}")
     else:
         print("Performing initial walk search")
-    print("Inside find_stops_walking, street network units: ", network.crs().mapUnits())
     reachable_stops_id = processing.run("native:shortestpathpointtolayer",
                                      {'INPUT':network,'STRATEGY': 1,
                                       'DIRECTION_FIELD':'','VALUE_FORWARD':'',
                                       'VALUE_BACKWARD':'','VALUE_BOTH':'',
                                       'DEFAULT_DIRECTION':2,'SPEED_FIELD':'',
-                                      'DEFAULT_SPEED': walk_m_per_hour,
+                                      'DEFAULT_SPEED': walk_km_per_hour,
                                       'TOLERANCE':0,'START_POINT':lat_lon_str,
                                       'END_POINTS':stops, 'OUTPUT':'TEMPORARY_OUTPUT'},
                                     is_child_algorithm=True,
@@ -86,7 +86,6 @@ def find_stops_transit(start_node, route, stops, context, feedback):
 
     direction = start_node.dir
     reverse = 1 if direction == 0 else 0
-    print("Inside find_stops_transit, units: ", route.crs().mapUnits())
     routes_to_stops_id = processing.run("native:shortestpathpointtolayer",
                                      {'INPUT': route,
                                      'STRATEGY': 1, 'DIRECTION_FIELD': 'DIR', 'VALUE_FORWARD': direction,
@@ -107,7 +106,7 @@ def find_stops_transit(start_node, route, stops, context, feedback):
 def get_reachable_stops_walking(start_node, time_limit, total_service_area, context, feedback):
     # Create buffer around start point with radius of
     # The maximum distance walkable with time remaining
-    max_distance = walk_m_per_hour * (time_limit - start_node.time)
+    max_distance = walk_m_per_hour * (time_limit - start_node.time) * 1.5                       # Added extra distance to buffer - not sure why it stopped working at max walkable dist
     if start_node.is_search_origin:
         buffer = create_origin_buffer(start_node, max_distance, context, feedback)
     else:
@@ -161,7 +160,6 @@ def get_reachable_stops_transit(start_node, time_limit, total_service_area, cont
 def create_walking_service_area(start_node, streets, total_time, context, feedback):
     lat_lon_str = start_node.get_coord_string()
     #print(f"CWSA - streets type: {type(streets)}, feature count = {streets.featureCount()}")
-    print("Inside create_walking_service_area, units: ", streets.crs().mapUnits())
     service_area_id = processing.run("native:serviceareafrompoint", {
         'INPUT': streets,
         'STRATEGY': 1, 'DIRECTION_FIELD': '', 'VALUE_FORWARD': '', 'VALUE_BACKWARD': '', 'VALUE_BOTH': '',
@@ -205,8 +203,7 @@ def create_buffer(node, distance, context, feedback):
     print(f"Generating {format(distance, '.0f')} meter walk buffer around Trimet stop {node.get_stop_id()}")
     select_feature_by_attribute(node.layer, 'fid', node.id, context, feedback)
     node_extracted = extract_selection(node.layer, context, feedback)
-    
-    print("Inside create_buffer, units: ", node_extracted.crs().mapUnits())
+
     buffer_id = processing.run("native:buffer",
         {'INPUT': node_extracted,
         'DISTANCE':distance,
@@ -239,7 +236,6 @@ def create_origin_buffer(node, distance, context, feedback):
     provider.addFeatures([feat])
 
     print(f"Creating origin walk buffer")
-    print("Inside create_buffer, units: ", layer.crs().mapUnits())
     buffer_id = processing.run("native:buffer",
                             {'INPUT': layer,
                              'DISTANCE': distance,

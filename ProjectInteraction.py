@@ -54,12 +54,13 @@ def find_stops_walking(start_node, network, stops, context, feedback):
         print(f"Performing walking search from Trimet stop {start_node.get_stop_id()}")
     else:
         print("Performing initial walk search")
+    print("Inside find_stops_walking, street network units: ", network.crs().mapUnits())
     reachable_stops_id = processing.run("native:shortestpathpointtolayer",
                                      {'INPUT':network,'STRATEGY': 1,
                                       'DIRECTION_FIELD':'','VALUE_FORWARD':'',
                                       'VALUE_BACKWARD':'','VALUE_BOTH':'',
                                       'DEFAULT_DIRECTION':2,'SPEED_FIELD':'',
-                                      'DEFAULT_SPEED': walk_km_per_hour,
+                                      'DEFAULT_SPEED': walk_m_per_hour,
                                       'TOLERANCE':0,'START_POINT':lat_lon_str,
                                       'END_POINTS':stops, 'OUTPUT':'TEMPORARY_OUTPUT'},
                                     is_child_algorithm=True,
@@ -85,6 +86,7 @@ def find_stops_transit(start_node, route, stops, context, feedback):
 
     direction = start_node.dir
     reverse = 1 if direction == 0 else 0
+    print("Inside find_stops_transit, units: ", route.crs().mapUnits())
     routes_to_stops_id = processing.run("native:shortestpathpointtolayer",
                                      {'INPUT': route,
                                      'STRATEGY': 1, 'DIRECTION_FIELD': 'DIR', 'VALUE_FORWARD': direction,
@@ -159,6 +161,7 @@ def get_reachable_stops_transit(start_node, time_limit, total_service_area, cont
 def create_walking_service_area(start_node, streets, total_time, context, feedback):
     lat_lon_str = start_node.get_coord_string()
     #print(f"CWSA - streets type: {type(streets)}, feature count = {streets.featureCount()}")
+    print("Inside create_walking_service_area, units: ", streets.crs().mapUnits())
     service_area_id = processing.run("native:serviceareafrompoint", {
         'INPUT': streets,
         'STRATEGY': 1, 'DIRECTION_FIELD': '', 'VALUE_FORWARD': '', 'VALUE_BACKWARD': '', 'VALUE_BOTH': '',
@@ -203,6 +206,7 @@ def create_buffer(node, distance, context, feedback):
     select_feature_by_attribute(node.layer, 'fid', node.id, context, feedback)
     node_extracted = extract_selection(node.layer, context, feedback)
     
+    print("Inside create_buffer, units: ", node_extracted.crs().mapUnits())
     buffer_id = processing.run("native:buffer",
         {'INPUT': node_extracted,
         'DISTANCE':distance,
@@ -235,6 +239,7 @@ def create_origin_buffer(node, distance, context, feedback):
     provider.addFeatures([feat])
 
     print(f"Creating origin walk buffer")
+    print("Inside create_buffer, units: ", layer.crs().mapUnits())
     buffer_id = processing.run("native:buffer",
                             {'INPUT': layer,
                              'DISTANCE': distance,
